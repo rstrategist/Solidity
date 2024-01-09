@@ -12,7 +12,7 @@ contract SimpleStorage {
     uint256 favNum;
     //bool favoriteBool;
 
-    // Create a structure to a number and a name
+    // Create a structure to add a number and a name
     struct People {
         uint256 favNum;
         string name;
