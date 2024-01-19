@@ -43,11 +43,22 @@ bytecode = compiled_sol["contracts"]["SimpleStorage.sol"]["SimpleStorage"]["evm"
 abi = compiled_sol["contracts"]["SimpleStorage.sol"]["SimpleStorage"]["abi"]
 
 # Connecting to Ganache
-w3 = Web3(Web3.HTTPProvider("HTTP://127.0.0.1:7545"))
-chain_id = 1337
+# w3 = Web3(Web3.HTTPProvider("HTTP://127.0.0.1:8545"))
+# chain_id = 1337
+
+# Connecting to Infura Ethereum Sepolia Testnet
+w3 = Web3(
+    Web3.HTTPProvider("https://sepolia.infura.io/v3/d33763ff828a41bfb8e010721b644bd1")
+)
+chain_id = 11155111
+
 
 # This is a simulated account on an EVM, sorry, no real ETH there :)
-my_address = "0x20218c928aBB3055c3774fAC645f73c8e548A0c8"
+# my_address = "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1"
+# private_key = os.getenv("PRIVATE_KEY")
+
+# Ethereum Sepolia Testnet
+my_address = "0x7c9850D69EA44C715ecf7C0806C5dceAe388AdC0"
 private_key = os.getenv("PRIVATE_KEY")
 
 # Create the contract in Python
@@ -59,7 +70,12 @@ nonce = w3.eth.get_transaction_count(my_address)
 
 # 1. Build the transaction
 transaction = SimpleStorage.constructor().build_transaction(
-    {"chainId": chain_id, "from": my_address, "nonce": nonce}
+    {
+        "gasPrice": w3.eth.gas_price,
+        "chainId": chain_id,
+        "from": my_address,
+        "nonce": nonce,
+    }
 )
 
 # 2. Sign the transaction
@@ -84,7 +100,12 @@ print(simple_storage.functions.retrieve().call())
 print("Updating contract...")
 # 1. Build transaction
 store_transaction = simple_storage.functions.store(15).build_transaction(
-    {"chainId": chain_id, "from": my_address, "nonce": nonce + 1}
+    {
+        "gasPrice": w3.eth.gas_price,
+        "chainId": chain_id,
+        "from": my_address,
+        "nonce": nonce + 1,
+    }
 )
 # 2. Sign the transaction
 signed_store_txn = w3.eth.account.sign_transaction(
