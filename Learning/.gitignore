@@ -1,2 +1,4 @@
 .env
 .gitignore
+/brownie_simple_storage/.venv
+/brownie_fund_me/.venv
