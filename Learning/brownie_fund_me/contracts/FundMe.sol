@@ -16,7 +16,7 @@ contract FundMe {
     mapping(address => uint256) public addressToAmountFunded;
     address[] public funders;
     address public owner;
-    AggregatorV3Interface priceFeed;
+    AggregatorV3Interface public priceFeed;
 
     // Immediately executed when contract is deployed
     constructor(address _priceFeed) public {
