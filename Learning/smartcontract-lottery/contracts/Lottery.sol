@@ -4,9 +4,10 @@ pragma solidity ^0.6.6;
 import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 import "@chainlink/contracts/src/v0.6/VRFConsumerBase.sol";
 import "@chainlink/contracts/src/v0.6/vendor/SafeMathChainlink.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+// Newer libraries
 //import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 //import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Lottery is VRFConsumerBase, Ownable {
     address payable[] public players;
@@ -23,6 +24,9 @@ contract Lottery is VRFConsumerBase, Ownable {
     }
     uint256 public fee;
     bytes32 public keyhash;
+
+    // Request randomness from the Chainlink VRF coordinator for unit test
+    // of endLottery()
     event RequestedRandomness(bytes32 requestId);
 
     // Constrctor
@@ -56,8 +60,8 @@ contract Lottery is VRFConsumerBase, Ownable {
     // Get entrance fee: $50 in Wei
     function getEntranceFee() public view returns (uint256) {
         (, int256 price, , , ) = ethUSDPriceFeed.latestRoundData();
-        uint256 adustedPrice = uint256(price) * 10 ** 10; // 18 decimals
-        uint256 costToEnter = (usdEntryFee * 10 ** 18) / adustedPrice;
+        uint256 adustedPrice = uint256(price) * (10 ** 10); // 18 decimals
+        uint256 costToEnter = (usdEntryFee * (10 ** 18)) / adustedPrice;
         return costToEnter;
     }
 

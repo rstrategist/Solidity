@@ -22,15 +22,18 @@ def start_lottery():
         print("Starting lottery...")
         account = get_account()
         lottery = Lottery[-1]
-        starting_tx = lottery.startLottery({"from": account})
-        starting_tx.wait(1)
+        tx = lottery.startLottery({"from": account})
+        tx.wait(1)
         print("Lottery started!")
 
 def enter_lottery():
         print("Entering you into the lottery!")
         account = get_account()
         lottery = Lottery[-1]
-        value = lottery.getEntranceFee() + 1*10**8
+        amount = lottery.getEntranceFee()
+        print(amount)
+        value = (amount + 100000000)
+        print(value)
         tx = lottery.enter({"from": account, "value": value})
         tx.wait(1)
         print("You have entered the lottery!")
@@ -42,7 +45,7 @@ def end_lottery():
         # Fund the contract with LINK token
         tx = fund_with_link(lottery.address)
         #tx.wait(1)
-        # End lottery
+        # End the lottery
         ending_tx = lottery.endLottery({"from": account})
         ending_tx.wait(1)
         time.sleep(60)

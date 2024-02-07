@@ -1,6 +1,6 @@
 from brownie import Lottery, accounts, config, network, exceptions
 from scripts.deploy_lottery import deploy_lottery
-from scripts.helpful_scripts import LOCAL_BLOCKCHAIN_ENVIRONMENTS, get_account, fund_with_link
+from scripts.helpful_scripts import LOCAL_BLOCKCHAIN_ENVIRONMENTS, get_account, get_contract, fund_with_link
 from web3 import Web3
 import pytest
 
@@ -70,9 +70,27 @@ def test_can_pick_winner_correctly():
     lottery.enter({"from": account, "value": lottery.getEntranceFee()})
     lottery.enter({"from": get_account(index=1), "value": lottery.getEntranceFee()})
     lottery.enter({"from": get_account(index=2), "value": lottery.getEntranceFee()})
-    lottery.enter({"from": get_account(index=3), "value": lottery.getEntranceFee()})
     # To end the lottery, we need to use some LINK to request randomness
     fund_with_link(lottery)
-    # Have to mimick a chainlink node to call the fulfillRandomness function
+    # Mock response within the test by mimicking a chainlink node to call
+    # the fulfillRandomness function
     transaction = lottery.endLottery({"from": account})
-    assert lottery.lotteryState() == 2
+    request_id = transaction.events["RequestedRandomness"]["requestId"]
+    STATIC_RNG = 777
+    get_contract("vrf_coordinator").callBackWithRandomness(request_id,
+                                                           STATIC_RNG,
+                                                           lottery.address,
+                                                           {"from": account})
+    # 777 % 3 =  0 so the first player should win!
+    winning_account = account
+    print(winning_account)
+    starting_balance_of_account = winning_account.balance()
+    print(starting_balance_of_account)
+    balance_of_lottery = lottery.balance()
+    print(balance_of_lottery)
+    print(lottery.recentWinner())
+    
+    assert lottery.recentWinner() == winning_account
+    assert lottery.balance() == 0
+    assert account.balance == (starting_balance_of_account + balance_of_lottery)
+    
