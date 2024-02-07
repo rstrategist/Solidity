@@ -5,7 +5,7 @@ import time
 def deploy_lottery():
         #account = get_account(id="demo-account")
         account = get_account()
-        Lottery.deploy(
+        lottery = Lottery.deploy(
                 get_contract("eth_usd_price_feed").address,
                 get_contract("vrf_coordinator").address,
                 get_contract("link_token").address,
@@ -16,6 +16,7 @@ def deploy_lottery():
                 )
         print("Lottery contract deployed!")
         #print(f"Lottery contract deployed to {lottery.address}")
+        return lottery
 
 def start_lottery():
         print("Starting lottery...")
