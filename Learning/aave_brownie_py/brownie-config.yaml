@@ -1,0 +1,27 @@
+dotenv: .env
+dependencies:
+  - aave/protocol-v2@1.0.1
+compiler:
+  solc:
+    remappings:
+      - "@aave=aave/protocol-v2@1.0.1"
+networks:
+  default: development
+  sepolia:
+    eth_usd_price_feed: "0x694AA1769357215DE4FAC081bf1f309aDC325306"
+    weth_token: "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9"
+    PoolAddressesProvider-Aave: "0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A"
+    verify: True
+  mainnet-fork:
+    eth_usd_price_feed: "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
+    weth_token: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+    PoolAddressesProvider-Aave: "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2"
+    verify: False
+  development:
+    verify: False
+  ganache-local:
+    verify: False
+  ganache-cli:
+    verify: False
+wallets:
+  from_key: ${PRIVATE_KEY}
