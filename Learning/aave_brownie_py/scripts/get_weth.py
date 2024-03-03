@@ -4,7 +4,7 @@ from brownie import interface, config, network
 def main():
     get_weth()
 
-def get_weth():
+def get_weth(account=None):
     """
     Mints WETH by depositing ETH.
     """
@@ -12,8 +12,7 @@ def get_weth():
     # Address
     account = get_account()
     weth = interface.IWeth(config["networks"][network.show_active()]["weth_token"])
-    tx = weth.deposit({"from": account, "value": 0.1 * 10 ** 18})
+    tx = weth.deposit({"value": 0.1 * 1e18, "from": account})
     tx.wait(1)
     print("Deposited 0.1 ETH")
     return tx
-                      
