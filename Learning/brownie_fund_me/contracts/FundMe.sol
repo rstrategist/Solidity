@@ -1,82 +1,123 @@
 // SPDX-License-Identifier: MIT
 
-// Smart contract that lets anyone deposit ETH into the contract
-// Only the owner of the contract can withdraw the ETH
-pragma solidity >=0.6.6 <0.9.0;
+/**
+ * @title FundMe Contract
+ * @author Based on Patrick Collins' tutorial
+ * @notice This contract allows anyone to deposit ETH and only the owner to withdraw
+ * @dev Implements a crowdfunding pattern with minimum USD deposit requirement
+ */
+pragma solidity ^0.8.19;
 
-import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
-import "@chainlink/contracts/src/v0.6/vendor/SafeMathChainlink.sol";
+import {PriceConverter} from "./PriceConverter.sol";
+import {
+    AggregatorV3Interface
+} from "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 
+/**
+ * @title FundMe
+ * @notice A crowdfunding contract with minimum USD deposit requirement
+ */
 contract FundMe {
-    // SafeMath library checks uint256 for integer overflows
-    /// not needed following v0.8.0
-    using SafeMathChainlink for uint256;
+    using PriceConverter for uint256;
 
-    //mapping to store which address depositeded how much ETH
+    /////////////////
+    // Errors      //
+    /////////////////
+    error NotOwner();
+    error InsufficientFunding();
+
+    /////////////////
+    // State Variables //
+    /////////////////
+
+    /** @notice Minimum funding amount in USD (18 decimals) */
+    uint256 public constant MINIMUM_USD = 50 * 10 ** 18;
+
+    /** @notice Mapping of funders to their funded amounts */
     mapping(address => uint256) public addressToAmountFunded;
+
+    /** @notice Array of all funder addresses */
     address[] public funders;
-    address public owner;
-    AggregatorV3Interface public priceFeed;
 
-    // Immediately executed when contract is deployed
-    constructor(address _priceFeed) public {
-        // Price Feed: https://docs.chain.link/data-feeds/price-feeds/addresses?network=ethereum&page=1&search=
-        priceFeed = AggregatorV3Interface(_priceFeed);
-        owner = msg.sender;
-    }
+    /** @notice The contract owner who can withdraw funds */
+    address public immutable i_owner;
 
-    function fund() public payable {
-        // $50
-        uint256 minimumUSD = 50 * 10 ** 18;
-        // 1Gwei < $50
-        require(
-            getConversionRate(msg.value) >= minimumUSD,
-            "The minimum amount of ETH is $50 equivalent."
-        );
-        addressToAmountFunded[msg.sender] += msg.value;
-        funders.push(msg.sender);
-    }
+    /** @notice Chainlink price feed for ETH/USD conversion */
+    AggregatorV3Interface public immutable i_priceFeed;
 
-    function getVersion() public view returns (uint256) {
-        return priceFeed.version();
-    }
+    /////////////////
+    // Events      //
+    /////////////////
 
-    // Get ETH price from Chainlink price feeds
-    function getPrice() public view returns (uint256) {
-        (, int256 answer, , , ) = priceFeed.latestRoundData();
-        return uint256(answer * 10000000000);
-    }
+    /** @notice Emitted when a funder deposits ETH */
+    event Funded(address indexed funder, uint256 amount);
 
-    // Get ETH amount in USD by conversion calc.
-    function getConversionRate(
-        uint256 ethAmount
-    ) public view returns (uint256) {
-        uint256 ethPrice = getPrice();
-        uint256 ethAmountInUSD = (ethPrice * ethAmount) / (1 * 10 ** 18);
-        return ethAmountInUSD;
-    }
+    /** @notice Emitted when owner withdraws funds */
+    event Withdrawn(address indexed owner, uint256 amount);
 
-    function getEntranceFee() public view returns (uint256) {
-        // minimumUSD
-        uint256 minimumUSD = 50 * 10 ** 18;
-        uint256 price = getPrice();
-        uint256 precision = 1 * 10 ** 18;
-        return (minimumUSD * precision) / price;
-    }
+    /////////////////
+    // Modifiers   //
+    /////////////////
 
+    /**
+     * @notice Restricts function access to contract owner only
+     * @dev Uses custom error for gas efficiency
+     */
     modifier onlyOwner() {
-        // Require that only contract admin/owner can send
-        require(
-            msg.sender == owner,
-            "Only contract owner can withdrawal funds. "
-        );
+        if (msg.sender != i_owner) {
+            revert NotOwner();
+        }
         _;
     }
 
-    // Function to withdrawl funds
-    function withdraw() public payable onlyOwner {
-        msg.sender.transfer(address(this).balance);
-        // Reset addressToAmountFunded mapping
+    /////////////////
+    // Functions   //
+    /////////////////
+
+    /**
+     * @notice Initializes the contract with price feed and sets owner
+     * @param _priceFeed Address of the Chainlink ETH/USD price feed
+     * @dev Price feed addresses: https://docs.chain.link/data-feeds/price-feeds/addresses
+     */
+    constructor(address _priceFeed) {
+        i_priceFeed = AggregatorV3Interface(_priceFeed);
+        i_owner = msg.sender;
+    }
+
+    /**
+     * @notice Allows users to fund the contract with ETH
+     * @dev Requires minimum USD equivalent of MINIMUM_USD
+     */
+    function fund() public payable {
+        // Require minimum $50 equivalent in ETH
+        if (msg.value.getConversionRate(i_priceFeed) < MINIMUM_USD) {
+            revert InsufficientFunding();
+        }
+
+        addressToAmountFunded[msg.sender] += msg.value;
+        funders.push(msg.sender);
+
+        emit Funded(msg.sender, msg.value);
+    }
+
+    /**
+     * @notice Calculates the minimum ETH required to meet USD threshold
+     * @return The minimum ETH amount in wei
+     */
+    function getEntranceFee() public view returns (uint256) {
+        uint256 price = PriceConverter.getPrice(i_priceFeed);
+        uint256 precision = 1 * 10 ** 18;
+        return (MINIMUM_USD * precision) / price;
+    }
+
+    /**
+     * @notice Withdraws all funds to the contract owner
+     * @dev Resets all funder balances and clears funders array
+     */
+    function withdraw() public onlyOwner {
+        uint256 balance = address(this).balance;
+
+        // Reset all funder balances
         for (
             uint256 funderIndex = 0;
             funderIndex < funders.length;
@@ -85,7 +126,80 @@ contract FundMe {
             address funder = funders[funderIndex];
             addressToAmountFunded[funder] = 0;
         }
-        // Reset funders array once withdrawn
+
+        // Reset funders array
         funders = new address[](0);
+
+        // Transfer funds using call (recommended method post-Istanbul hard fork)
+        (bool success, ) = payable(msg.sender).call{value: balance}("");
+        require(success, "Transfer failed");
+
+        emit Withdrawn(msg.sender, balance);
+    }
+
+    /**
+     * @notice Alternative withdraw using cheaper storage operations
+     * @dev More gas efficient for large funders arrays
+     */
+    function cheaperWithdraw() public onlyOwner {
+        uint256 balance = address(this).balance;
+
+        // Store funders in memory for cheaper iteration
+        address[] memory fundersMemory = funders;
+
+        // Reset all funder balances
+        for (
+            uint256 funderIndex = 0;
+            funderIndex < fundersMemory.length;
+            funderIndex++
+        ) {
+            address funder = fundersMemory[funderIndex];
+            addressToAmountFunded[funder] = 0;
+        }
+
+        // Reset funders array
+        funders = new address[](0);
+
+        // Transfer funds
+        (bool success, ) = payable(msg.sender).call{value: balance}("");
+        require(success, "Transfer failed");
+
+        emit Withdrawn(msg.sender, balance);
+    }
+
+    /**
+     * @notice Gets the version of the Chainlink price feed
+     * @return The version number
+     */
+    function getVersion() public view returns (uint256) {
+        return PriceConverter.getVersion(i_priceFeed);
+    }
+
+    /**
+     * @notice Gets the current ETH price from Chainlink
+     * @return The current ETH price in USD (18 decimals)
+     */
+    function getPrice() public view returns (uint256) {
+        return PriceConverter.getPrice(i_priceFeed);
+    }
+
+    /////////////////
+    // Receive/Fallback //
+    /////////////////
+
+    /**
+     * @notice Handles direct ETH transfers without calldata
+     * @dev Forwards to fund() function
+     */
+    receive() external payable {
+        fund();
+    }
+
+    /**
+     * @notice Handles direct ETH transfers with calldata
+     * @dev Forwards to fund() function
+     */
+    fallback() external payable {
+        fund();
     }
 }
